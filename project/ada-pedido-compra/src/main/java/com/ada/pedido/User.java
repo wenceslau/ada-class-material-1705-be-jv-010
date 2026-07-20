@@ -1,5 +1,7 @@
 package com.ada.pedido;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class User {
 
     private String username;
