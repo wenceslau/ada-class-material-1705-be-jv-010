@@ -1,7 +1,8 @@
 package com.ada.pedido;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import io.quarkus.runtime.annotations.RegisterForReflection;
 
+@RegisterForReflection
 public class User {
 
     private String username;
