@@ -1,5 +1,8 @@
 package com.ada.pedido.resources;
 
+import com.ada.pedido.repositories.ClienteEntity;
+import com.ada.pedido.repositories.ClienteRepository;
+import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -13,38 +16,43 @@ import java.util.UUID;
 @Produces(MediaType.APPLICATION_JSON)
 public class ClienteResource {
 
-    private final List<Cliente> clientes = new ArrayList<>();
+    private final ClienteRepository clienteRepository;
+
+    public ClienteResource(ClienteRepository clienteRepository) {
+        this.clienteRepository = clienteRepository;
+    }
 
     @POST
     @Path("/criar")
-    public Response criarCliente(Cliente cliente) {
+    @Transactional
+    public Response criarCliente(ClienteEntity clienteEntity) {
 
-        cliente.setId(UUID.randomUUID().toString()); // Atribui um ID random para o cliente
-        clientes.add(cliente);
+        clienteRepository.persist(clienteEntity);
 
         return Response
                 .status(Response.Status.CREATED)
-                .entity(cliente)
+                .entity(clienteEntity)
                 .build();
     }
 
     @GET
     @Path("/listar")
     public Response listarClientes() {
+
+        var panacheQuery = clienteRepository.findAll();
+        var listaClientes = panacheQuery.list();
+
         return Response
                 .status(Response.Status.OK)
-                .entity(clientes)
+                .entity(listaClientes)
                 .build();
     }
 
     @GET
     @Path("/buscar/{id}")
-    public Response buscarClientePorId(@PathParam("id") String id){
+    public Response buscarClientePorId(@PathParam("id") Long id){
 
-        var cliente = clientes.stream()
-                .filter(c -> c.getId().equals(id))
-                .findFirst()
-                .orElse(null);
+        var cliente = clienteRepository.findById(id);
 
         if (cliente == null) {
             return Response
@@ -62,21 +70,21 @@ public class ClienteResource {
 
     @DELETE
     @Path("/deletar/{id}")
-    public Response deletarCliente(@PathParam("id") String id) {
+    @Transactional
+    public Response deletarCliente(@PathParam("id") Long id) {
 
-        var cliente = clientes.stream()
-                .filter(c -> c.getId().equals(id))
-                .findFirst()
-                .orElse(null);
+        clienteRepository.deleteById(id);
 
-        if (cliente == null) {
-            return Response
-                    .status(Response.Status.NOT_FOUND)
-                    .entity("{\"message\": \"Cliente não encontrado\"}")
-                    .build();
-        }
+        //var cliente = clienteRepository.findById(id);
 
-        clientes.remove(cliente);
+//        if (!deletado) {
+//            return Response
+//                    .status(Response.Status.NOT_FOUND)
+//                    .entity("{\"message\": \"Cliente não encontrado\"}")
+//                    .build();
+//        }
+
+       //clienteRepository.delete(cliente);
 
         return Response
                 .status(Response.Status.NO_CONTENT)
@@ -85,11 +93,9 @@ public class ClienteResource {
 
     @PUT
     @Path("/atualizar/{id}")
-    public Response atualizarCliente(@PathParam("id") String id, Cliente clienteAtualizado){
-        var cliente = clientes.stream()
-                .filter(c -> c.getId().equals(id))
-                .findFirst()
-                .orElse(null);
+    @Transactional
+    public Response atualizarCliente(@PathParam("id") Long id, ClienteEntity clienteEntityAtualizado){
+        var cliente = clienteRepository.findById(id);
 
         if (cliente == null) {
             return Response
@@ -98,8 +104,10 @@ public class ClienteResource {
                     .build();
         }
 
-        cliente.setNome(clienteAtualizado.getNome());
-        cliente.setEmail(clienteAtualizado.getEmail());
+        cliente.setNome(clienteEntityAtualizado.getNome());
+        cliente.setEmail(clienteEntityAtualizado.getEmail());
+
+        clienteRepository.persist(cliente);
 
         return Response
                 .status(Response.Status.OK)
@@ -109,11 +117,9 @@ public class ClienteResource {
 
     @PATCH
     @Path("/atualizar-parcialmente/{id}")
-    public Response atualizarClienteParcialmente(@PathParam("id") String id, Cliente clienteAtualizado){
-        var cliente = clientes.stream()
-                .filter(c -> c.getId().equals(id))
-                .findFirst()
-                .orElse(null);
+    @Transactional
+    public Response atualizarClienteParcialmente(@PathParam("id") Long id, ClienteEntity clienteEntityAtualizado){
+        var cliente = clienteRepository.findById(id);
         if (cliente == null) {
             return Response
                     .status(Response.Status.NOT_FOUND)
@@ -121,12 +127,14 @@ public class ClienteResource {
                     .build();
         }
 
-        if(clienteAtualizado.getNome() != null){
-            cliente.setNome(clienteAtualizado.getNome());
+        if(clienteEntityAtualizado.getNome() != null){
+            cliente.setNome(clienteEntityAtualizado.getNome());
         }
-        if (clienteAtualizado.getEmail() != null){
-            cliente.setEmail(clienteAtualizado.getEmail());
+        if (clienteEntityAtualizado.getEmail() != null){
+            cliente.setEmail(clienteEntityAtualizado.getEmail());
         }
+
+        clienteRepository.persist(cliente);
 
         return Response
                 .status(Response.Status.OK)
@@ -134,4 +142,33 @@ public class ClienteResource {
                 .build();
     }
 
+    @GET
+    @Path("/buscar-por-email/{email}")
+    public Response buscarClientePorEmail(@PathParam("email") String email) {
+        var cliente = clienteRepository.findByEmail(email);
+
+        if (cliente.isEmpty()) {
+            return Response
+                    .status(Response.Status.NOT_FOUND)
+                    .entity("{\"message\": \"Cliente não encontrado\"}")
+                    .build();
+        }
+
+        return Response
+                .status(Response.Status.OK)
+                .entity(cliente.get())
+                .build();
+    }
+
+    @GET
+    @Path("/buscar-por-nome/{nome}")
+    public Response buscarClientePorNome(@PathParam("nome") String nome) {
+        var panacheQuery = clienteRepository.findByNameLike(nome);
+
+
+        return Response
+                .status(Response.Status.OK)
+                .entity(panacheQuery.list())
+                .build();
+    }
 }
