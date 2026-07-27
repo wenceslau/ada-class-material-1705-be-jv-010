@@ -2,7 +2,10 @@ package com.ada.pedido.resources;
 
 import com.ada.pedido.repositories.ClienteEntity;
 import com.ada.pedido.repositories.ClienteRepository;
+import com.ada.pedido.resources.dto.ClienteDTO;
+import com.ada.pedido.resources.exceptions.BusinessException;
 import jakarta.transaction.Transactional;
+import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -25,14 +28,20 @@ public class ClienteResource {
     @POST
     @Path("/criar")
     @Transactional
-    public Response criarCliente(ClienteEntity clienteEntity) {
+    public Response criarCliente(@Valid ClienteDTO cliente) {
 
-        clienteRepository.persist(clienteEntity);
+        if (cliente.nome().length() < 5){
+            throw new BusinessException("Nome do cliente não pode ter menos de 5 caracteres");
+        }
+
+        var entity = cliente.criarEntity();
+        clienteRepository.persist(entity);
 
         return Response
                 .status(Response.Status.CREATED)
-                .entity(clienteEntity)
+                .entity(ClienteDTO.fromEntity(entity))
                 .build();
+
     }
 
     @GET
@@ -42,19 +51,28 @@ public class ClienteResource {
         var panacheQuery = clienteRepository.findAll();
         var listaClientes = panacheQuery.list();
 
+//        var listaClientesDTO = listaClientes.stream()
+//                .map(ClienteDTO::fromEntity)
+//                .toList();
+
+        var listaClientesDTO = new ArrayList<>();
+        for (ClienteEntity cliente : listaClientes) {
+            listaClientesDTO.add(ClienteDTO.fromEntity(cliente));
+        }
+
         return Response
                 .status(Response.Status.OK)
-                .entity(listaClientes)
+                .entity(listaClientesDTO)
                 .build();
     }
 
     @GET
     @Path("/buscar/{id}")
-    public Response buscarClientePorId(@PathParam("id") Long id){
+    public Response buscarClientePorId(@PathParam("id") Long id) {
 
-        var cliente = clienteRepository.findById(id);
+        var clienteEntity = clienteRepository.findById(id);
 
-        if (cliente == null) {
+        if (clienteEntity == null) {
             return Response
                     .status(Response.Status.NOT_FOUND)
                     .entity("{\"message\": \"Cliente não encontrado\"}")
@@ -63,7 +81,7 @@ public class ClienteResource {
 
         return Response
                 .status(Response.Status.OK)
-                .entity(cliente)
+                .entity(ClienteDTO.fromEntity(clienteEntity))
                 .build();
 
     }
@@ -84,7 +102,7 @@ public class ClienteResource {
 //                    .build();
 //        }
 
-       //clienteRepository.delete(cliente);
+        //clienteRepository.delete(cliente);
 
         return Response
                 .status(Response.Status.NO_CONTENT)
@@ -94,51 +112,51 @@ public class ClienteResource {
     @PUT
     @Path("/atualizar/{id}")
     @Transactional
-    public Response atualizarCliente(@PathParam("id") Long id, ClienteEntity clienteEntityAtualizado){
-        var cliente = clienteRepository.findById(id);
+    public Response atualizarCliente(@PathParam("id") Long id, @Valid ClienteDTO clienteAtualizado) {
+        var clienteEntity = clienteRepository.findById(id);
 
-        if (cliente == null) {
+        if (clienteEntity == null) {
             return Response
                     .status(Response.Status.NOT_FOUND)
                     .entity("{\"message\": \"Cliente não encontrado\"}")
                     .build();
         }
 
-        cliente.setNome(clienteEntityAtualizado.getNome());
-        cliente.setEmail(clienteEntityAtualizado.getEmail());
+        clienteEntity.setNome(clienteAtualizado.nome());
+        clienteEntity.setEmail(clienteAtualizado.email());
 
-        clienteRepository.persist(cliente);
+        clienteRepository.persist(clienteEntity);
 
         return Response
                 .status(Response.Status.OK)
-                .entity(cliente)
+                .entity(ClienteDTO.fromEntity(clienteEntity))
                 .build();
     }
 
     @PATCH
     @Path("/atualizar-parcialmente/{id}")
     @Transactional
-    public Response atualizarClienteParcialmente(@PathParam("id") Long id, ClienteEntity clienteEntityAtualizado){
-        var cliente = clienteRepository.findById(id);
-        if (cliente == null) {
+    public Response atualizarClienteParcialmente(@PathParam("id") Long id, ClienteDTO clienteAtualizado) {
+        var clienteEntity = clienteRepository.findById(id);
+        if (clienteEntity == null) {
             return Response
                     .status(Response.Status.NOT_FOUND)
                     .entity("{\"message\": \"Cliente não encontrado\"}")
                     .build();
         }
 
-        if(clienteEntityAtualizado.getNome() != null){
-            cliente.setNome(clienteEntityAtualizado.getNome());
+        if (clienteAtualizado.nome() != null) {
+            clienteEntity.setNome(clienteAtualizado.nome());
         }
-        if (clienteEntityAtualizado.getEmail() != null){
-            cliente.setEmail(clienteEntityAtualizado.getEmail());
+        if (clienteAtualizado.email() != null) {
+            clienteEntity.setEmail(clienteAtualizado.email());
         }
 
-        clienteRepository.persist(cliente);
+        clienteRepository.persist(clienteEntity);
 
         return Response
                 .status(Response.Status.OK)
-                .entity(cliente)
+                .entity(ClienteDTO.fromEntity(clienteEntity))
                 .build();
     }
 
@@ -154,9 +172,11 @@ public class ClienteResource {
                     .build();
         }
 
+        var clienteDTO = ClienteDTO.fromEntity(cliente.get());
+
         return Response
                 .status(Response.Status.OK)
-                .entity(cliente.get())
+                .entity(clienteDTO)
                 .build();
     }
 
@@ -164,11 +184,15 @@ public class ClienteResource {
     @Path("/buscar-por-nome/{nome}")
     public Response buscarClientePorNome(@PathParam("nome") String nome) {
         var panacheQuery = clienteRepository.findByNameLike(nome);
+        var listaClientes = panacheQuery.list();
 
+        var listaClientesDTO = listaClientes.stream()
+                .map(ClienteDTO::fromEntity)
+                .toList();
 
         return Response
                 .status(Response.Status.OK)
-                .entity(panacheQuery.list())
+                .entity(listaClientesDTO)
                 .build();
     }
 }
