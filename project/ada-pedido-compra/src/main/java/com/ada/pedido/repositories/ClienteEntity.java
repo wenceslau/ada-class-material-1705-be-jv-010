@@ -18,6 +18,12 @@ public class ClienteEntity {
     @Column(name = "email", nullable = false, unique = true)
     private String email;
 
+    @Column(length = 100, nullable = false)
+    private String senha;
+
+    @Enumerated(EnumType.STRING)
+    private TipoUsuario tipoUsuario;
+
     public Long getId() {
         return id;
     }
@@ -40,6 +46,22 @@ public class ClienteEntity {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getSenha() {
+        return senha;
+    }
+
+    public void setSenha(String senha) {
+        this.senha = senha;
+    }
+
+    public TipoUsuario getTipoUsuario() {
+        return tipoUsuario;
+    }
+
+    public void setTipoUsuario(TipoUsuario tipoUsuario) {
+        this.tipoUsuario = tipoUsuario;
     }
 
     @Override

@@ -2,8 +2,12 @@ package com.ada.pedido.resources;
 
 import com.ada.pedido.repositories.ClienteEntity;
 import com.ada.pedido.repositories.ClienteRepository;
-import com.ada.pedido.resources.dto.ClienteDTO;
+import com.ada.pedido.resources.dto.ClienteRequest;
+import com.ada.pedido.resources.dto.ClienteResponse;
 import com.ada.pedido.resources.exceptions.BusinessException;
+import io.quarkus.security.Authenticated;
+import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
@@ -11,9 +15,8 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 
+@Authenticated
 @Path("/clientes")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
@@ -28,7 +31,8 @@ public class ClienteResource {
     @POST
     @Path("/criar")
     @Transactional
-    public Response criarCliente(@Valid ClienteDTO cliente) {
+    @PermitAll
+    public Response criarCliente(@Valid ClienteRequest cliente) {
 
         if (cliente.nome().length() < 5){
             throw new BusinessException("Nome do cliente não pode ter menos de 5 caracteres");
@@ -39,7 +43,7 @@ public class ClienteResource {
 
         return Response
                 .status(Response.Status.CREATED)
-                .entity(ClienteDTO.fromEntity(entity))
+                .entity(ClienteResponse.fromEntity(entity))
                 .build();
 
     }
@@ -47,6 +51,7 @@ public class ClienteResource {
     @GET
     @Path("/listar")
     public Response listarClientes() {
+
 
         var panacheQuery = clienteRepository.findAll();
         var listaClientes = panacheQuery.list();
@@ -57,7 +62,7 @@ public class ClienteResource {
 
         var listaClientesDTO = new ArrayList<>();
         for (ClienteEntity cliente : listaClientes) {
-            listaClientesDTO.add(ClienteDTO.fromEntity(cliente));
+            listaClientesDTO.add(ClienteResponse.fromEntity(cliente));
         }
 
         return Response
@@ -81,7 +86,7 @@ public class ClienteResource {
 
         return Response
                 .status(Response.Status.OK)
-                .entity(ClienteDTO.fromEntity(clienteEntity))
+                .entity(ClienteResponse.fromEntity(clienteEntity))
                 .build();
 
     }
@@ -112,7 +117,7 @@ public class ClienteResource {
     @PUT
     @Path("/atualizar/{id}")
     @Transactional
-    public Response atualizarCliente(@PathParam("id") Long id, @Valid ClienteDTO clienteAtualizado) {
+    public Response atualizarCliente(@PathParam("id") Long id, @Valid ClienteRequest clienteAtualizado) {
         var clienteEntity = clienteRepository.findById(id);
 
         if (clienteEntity == null) {
@@ -129,14 +134,14 @@ public class ClienteResource {
 
         return Response
                 .status(Response.Status.OK)
-                .entity(ClienteDTO.fromEntity(clienteEntity))
+                .entity(ClienteResponse.fromEntity(clienteEntity))
                 .build();
     }
 
     @PATCH
     @Path("/atualizar-parcialmente/{id}")
     @Transactional
-    public Response atualizarClienteParcialmente(@PathParam("id") Long id, ClienteDTO clienteAtualizado) {
+    public Response atualizarClienteParcialmente(@PathParam("id") Long id, ClienteRequest clienteAtualizado) {
         var clienteEntity = clienteRepository.findById(id);
         if (clienteEntity == null) {
             return Response
@@ -156,7 +161,7 @@ public class ClienteResource {
 
         return Response
                 .status(Response.Status.OK)
-                .entity(ClienteDTO.fromEntity(clienteEntity))
+                .entity(ClienteResponse.fromEntity(clienteEntity))
                 .build();
     }
 
@@ -172,7 +177,7 @@ public class ClienteResource {
                     .build();
         }
 
-        var clienteDTO = ClienteDTO.fromEntity(cliente.get());
+        var clienteDTO = ClienteResponse.fromEntity(cliente.get());
 
         return Response
                 .status(Response.Status.OK)
@@ -187,7 +192,7 @@ public class ClienteResource {
         var listaClientes = panacheQuery.list();
 
         var listaClientesDTO = listaClientes.stream()
-                .map(ClienteDTO::fromEntity)
+                .map(ClienteResponse::fromEntity)
                 .toList();
 
         return Response
