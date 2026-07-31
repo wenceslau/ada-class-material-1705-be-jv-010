@@ -14,13 +14,13 @@ public class JWTService {
     private static String ISSUER = "https://ada.com"; // Defina o emissor do token
     private static String SECRET_KEY = "MySuperSecretKeyForTheAdaCourseThatIsAtLeast256BitsLong"; // Defina sua chave secreta aqui
 
-    public static String criarToken(String email) {
+    public static String criarToken(String email, String tipoUsuario) {
         JwtClaimsBuilder claimsBuilder = Jwt.claims()
                 .issuer(ISSUER)
                 .subject(email)
                 .issuedAt(Instant.now())
                 .expiresAt(Instant.now().plusSeconds(3600)) // Token expira em 1 hora
-                .groups("USER"); // Adicione grupos ou roles conforme necessário
+                .groups(tipoUsuario); // Adicione grupos ou roles conforme necessário
 
         return claimsBuilder.jws().signWithSecret(SECRET_KEY);
     }

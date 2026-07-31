@@ -6,6 +6,7 @@ import com.ada.pedido.resources.dto.ClienteRequest;
 import com.ada.pedido.resources.dto.ClienteResponse;
 import com.ada.pedido.resources.exceptions.BusinessException;
 import io.quarkus.security.Authenticated;
+import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.transaction.Transactional;
@@ -23,9 +24,11 @@ import java.util.ArrayList;
 public class ClienteResource {
 
     private final ClienteRepository clienteRepository;
+    private final SecurityIdentity securityIdentity;
 
-    public ClienteResource(ClienteRepository clienteRepository) {
+    public ClienteResource(ClienteRepository clienteRepository, SecurityIdentity securityIdentity) {
         this.clienteRepository = clienteRepository;
+        this.securityIdentity = securityIdentity;
     }
 
     @POST
@@ -50,6 +53,7 @@ public class ClienteResource {
 
     @GET
     @Path("/listar")
+    @RolesAllowed({"ADMIN"})
     public Response listarClientes() {
 
 
@@ -73,6 +77,7 @@ public class ClienteResource {
 
     @GET
     @Path("/buscar/{id}")
+    @RolesAllowed({"ADMIN"})
     public Response buscarClientePorId(@PathParam("id") Long id) {
 
         var clienteEntity = clienteRepository.findById(id);
@@ -94,6 +99,7 @@ public class ClienteResource {
     @DELETE
     @Path("/deletar/{id}")
     @Transactional
+    @RolesAllowed({"ADMIN"})
     public Response deletarCliente(@PathParam("id") Long id) {
 
         clienteRepository.deleteById(id);
@@ -117,7 +123,11 @@ public class ClienteResource {
     @PUT
     @Path("/atualizar/{id}")
     @Transactional
+    @RolesAllowed({"ADMIN", "CLIENTE"})
     public Response atualizarCliente(@PathParam("id") Long id, @Valid ClienteRequest clienteAtualizado) {
+
+        validaClienteHaAlterar(id);
+
         var clienteEntity = clienteRepository.findById(id);
 
         if (clienteEntity == null) {
@@ -141,7 +151,11 @@ public class ClienteResource {
     @PATCH
     @Path("/atualizar-parcialmente/{id}")
     @Transactional
+    @RolesAllowed({"ADMIN", "CLIENTE"})
     public Response atualizarClienteParcialmente(@PathParam("id") Long id, ClienteRequest clienteAtualizado) {
+
+        validaClienteHaAlterar(id);
+
         var clienteEntity = clienteRepository.findById(id);
         if (clienteEntity == null) {
             return Response
@@ -167,6 +181,7 @@ public class ClienteResource {
 
     @GET
     @Path("/buscar-por-email/{email}")
+    @RolesAllowed({"ADMIN"})
     public Response buscarClientePorEmail(@PathParam("email") String email) {
         var cliente = clienteRepository.findByEmail(email);
 
@@ -187,6 +202,7 @@ public class ClienteResource {
 
     @GET
     @Path("/buscar-por-nome/{nome}")
+    @RolesAllowed({"ADMIN"})
     public Response buscarClientePorNome(@PathParam("nome") String nome) {
         var panacheQuery = clienteRepository.findByNameLike(nome);
         var listaClientes = panacheQuery.list();
@@ -200,4 +216,22 @@ public class ClienteResource {
                 .entity(listaClientesDTO)
                 .build();
     }
+
+    private void validaClienteHaAlterar(Long id) {
+        if (id == null) {
+            throw new BusinessException("Id do cliente não pode ser nulo");
+        }
+
+        String userEmail = securityIdentity.getPrincipal().getName();
+        var optional = clienteRepository.findByEmail(userEmail);
+        if (optional.isEmpty()) {
+            throw new BusinessException("Usuário logado não encontrado");
+        }
+
+        var userLogado = optional.get();
+        if (!id.equals(userLogado.getId()) && userLogado.getTipoUsuario().name().equals("CLIENTE")) {
+            throw new BusinessException("Você não pode atualizar outro cliente");
+        }
+    }
+
 }

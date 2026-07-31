@@ -38,7 +38,7 @@ public class LoginResource {
                     .build();
         }
 
-        String token = JWTService.criarToken(cliente.getEmail());
+        String token = JWTService.criarToken(cliente.getEmail(), cliente.getTipoUsuario().name());
 
         return Response.ok(new LoginResponse(token))
                 .build();
