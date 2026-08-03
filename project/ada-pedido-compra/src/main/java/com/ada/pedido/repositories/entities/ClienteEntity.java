@@ -1,4 +1,4 @@
-package com.ada.pedido.repositories;
+package com.ada.pedido.repositories.entities;
 
 import jakarta.persistence.*;
 
@@ -67,6 +67,7 @@ public class ClienteEntity {
     @Override
     public final boolean equals(Object o) {
         if (!(o instanceof ClienteEntity that)) return false;
+
         return Objects.equals(id, that.id);
     }
 
