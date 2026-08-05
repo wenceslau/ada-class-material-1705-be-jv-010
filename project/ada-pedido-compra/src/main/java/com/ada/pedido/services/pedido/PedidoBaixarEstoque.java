@@ -4,49 +4,49 @@ import com.ada.pedido.repositories.PedidoRepository;
 import com.ada.pedido.repositories.ProdutoRepository;
 import com.ada.pedido.repositories.entities.ItemPedidoEntity;
 import com.ada.pedido.repositories.entities.PedidoEntity;
+import com.ada.pedido.repositories.entities.ProdutoEntity;
 import com.ada.pedido.repositories.entities.StatusPedido;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
+
+import java.util.Optional;
 
 @Priority(20)
 @ApplicationScoped
-public class PedidoBaixarEstoque implements  ProcessarPedido {
+public class PedidoBaixarEstoque implements ProcessarPedido {
 
     private final ProdutoRepository produtoRepository;
     private final PedidoRepository pedidoRepository;
 
-
-    @Inject
     public PedidoBaixarEstoque(ProdutoRepository produtoRepository, PedidoRepository pedidoRepository) {
         this.produtoRepository = produtoRepository;
         this.pedidoRepository = pedidoRepository;
     }
 
     @Override
-    public void processar(PedidoEntity pedidoEntity) {
+    public void processar(PedidoEntity pedido) {
+        System.out.println("Etapa Baixar estoque");
 
-        if (StatusPedido.NAO_PROCESSADO.equals(pedidoEntity.getStatus())){
-            // SALVAR O PEDIDO NO BANCO, SEM OS ITEM.
-            return;
+        if (!StatusPedido.NAO_PROCESSADO.equals(pedido.getStatus())) {
+            // Atualiza o estoque dos produtos do pedido
+            pedido.getItens().forEach(this::atualizarEstoque);
+            pedido.setStatus(StatusPedido.PROCESSADO);
         }
 
-        for (ItemPedidoEntity item : pedidoEntity.getItems()) {
-            atualizarEstoque(item);
-        }
-        pedidoEntity.setStatus(StatusPedido.PROCESSADO);
-        pedidoRepository.persist(pedidoEntity);
+        pedidoRepository.persist(pedido);
+        System.out.println(pedido.getId() + " - " + pedido.getStatus() + " - " + pedido.getMensagemStatus());
 
     }
 
-    private void atualizarEstoque(ItemPedidoEntity itemPedido){
+    private void atualizarEstoque(ItemPedidoEntity itemPedido) {
+        // Localiza o produto no banco de dados
+        Optional<ProdutoEntity> byId = produtoRepository.findByIdOptional(itemPedido.getProduto().getId());
 
-        var optional = produtoRepository.findByIdOptional(itemPedido.getProduto().getId());
-        if (optional.isPresent()) {
-            var produto = optional.get();
+        // Verifica se o produto existe e atualiza o estoque
+        if (byId.isPresent()) {
+            ProdutoEntity produto = byId.get();
             produto.setEstoque(produto.getEstoque() - itemPedido.getQuantidade());
             produtoRepository.persist(produto);
         }
-
     }
 }

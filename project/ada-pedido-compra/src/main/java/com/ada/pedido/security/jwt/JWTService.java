@@ -2,49 +2,55 @@ package com.ada.pedido.security.jwt;
 
 import com.nimbusds.jose.crypto.MACVerifier;
 import com.nimbusds.jwt.SignedJWT;
+import io.smallrye.jwt.auth.principal.JWTCallerPrincipal;
 import io.smallrye.jwt.auth.principal.ParseException;
 import io.smallrye.jwt.build.Jwt;
 import io.smallrye.jwt.build.JwtClaimsBuilder;
+import jakarta.enterprise.context.ApplicationScoped;
 
 import java.time.Instant;
 import java.util.Date;
+import java.util.Set;
+import java.util.logging.Logger;
 
+@ApplicationScoped
 public class JWTService {
 
-    private static String ISSUER = "https://ada.com"; // Defina o emissor do token
-    private static String SECRET_KEY = "MySuperSecretKeyForTheAdaCourseThatIsAtLeast256BitsLong"; // Defina sua chave secreta aqui
+    private static final Logger log = Logger.getLogger(JWTService.class.getName());
+    private static final String ISSUER = "https://ada.com";
+    private static final String SECRET = "MySuperSecretKeyForTheAdaCourseThatIsAtLeast256BitsLong";
 
-    public static String criarToken(String email, String tipoUsuario) {
+    public String criarToken(String username, Set<String> roles) {
         JwtClaimsBuilder claimsBuilder = Jwt.claims()
                 .issuer(ISSUER)
-                .subject(email)
+                .subject(username)
                 .issuedAt(Instant.now())
-                .expiresAt(Instant.now().plusSeconds(3600)) // Token expira em 1 hora
-                .groups(tipoUsuario); // Adicione grupos ou roles conforme necessário
+                .expiresAt(Instant.now().plusSeconds(1800)) //0.5 hora
+                .groups(roles);
 
-        return claimsBuilder.jws().signWithSecret(SECRET_KEY);
+        return claimsBuilder.jws().signWithSecret(SECRET);
     }
 
-    public static void validarToken(String token) throws ParseException {
+    public void validarToken(String token) throws ParseException {
+        SignedJWT signedJWT;
         try {
-            SignedJWT signedJWT = SignedJWT.parse(token);
+            signedJWT = SignedJWT.parse(token);
 
-            if (!signedJWT.verify(new MACVerifier(SECRET_KEY))) {
+            if (!signedJWT.verify(new MACVerifier(SECRET))) {
                 throw new RuntimeException("Invalid JWT signature");
             }
 
             Date expirationTime = signedJWT.getJWTClaimsSet().getExpirationTime();
 
-            if (expirationTime == null) {
-                throw new RuntimeException("JWT token does not have an expiration time");
-            }
-
-            if (expirationTime.before(new Date())) {
-                throw new RuntimeException("JWT token has expired");
+            if (expirationTime != null && expirationTime.before(new Date())) {
+                throw new RuntimeException("Token expired");
             }
 
         } catch (Exception e) {
-            throw new ParseException("Error on parser", e);
+            log.warning("Error validate token: " + e.getMessage());
+            throw new ParseException("Error validate token", e);
         }
     }
+
+
 }

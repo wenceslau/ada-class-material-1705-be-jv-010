@@ -3,15 +3,14 @@ package com.ada.pedido.repositories.entities;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
-import java.util.Objects;
 
 @Entity
-@Table(name = "items_pedido")
+@Table(name = "itens_pedido")
 public class ItemPedidoEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    Long id;
+    private Long id;
 
     @Column(nullable = false)
     private Integer quantidade;
@@ -20,10 +19,10 @@ public class ItemPedidoEntity {
     private BigDecimal preco;
 
     @ManyToOne
-    private ProdutoEntity produto;
+    private PedidoEntity pedido;
 
     @ManyToOne
-    private PedidoEntity pedido;
+    private ProdutoEntity produto;
 
     public Long getId() {
         return id;
@@ -49,14 +48,6 @@ public class ItemPedidoEntity {
         this.preco = preco;
     }
 
-    public ProdutoEntity getProduto() {
-        return produto;
-    }
-
-    public void setProduto(ProdutoEntity produto) {
-        this.produto = produto;
-    }
-
     public PedidoEntity getPedido() {
         return pedido;
     }
@@ -65,15 +56,11 @@ public class ItemPedidoEntity {
         this.pedido = pedido;
     }
 
-    @Override
-    public final boolean equals(Object o) {
-        if (!(o instanceof ItemPedidoEntity that)) return false;
-
-        return Objects.equals(id, that.id);
+    public ProdutoEntity getProduto() {
+        return produto;
     }
 
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(id);
+    public void setProduto(ProdutoEntity produto) {
+        this.produto = produto;
     }
 }

@@ -4,6 +4,6 @@ import com.ada.pedido.repositories.entities.PedidoEntity;
 
 public interface ProcessarPedido {
 
-    void processar(PedidoEntity pedidoEntity);
+    void processar(PedidoEntity pedido);
 
 }

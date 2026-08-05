@@ -4,35 +4,40 @@ import io.smallrye.jwt.auth.principal.*;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
+import jakarta.inject.Inject;
 import org.jose4j.jwt.JwtClaims;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.logging.Logger;
 
 @Priority(1)
 @Alternative
 @ApplicationScoped
 public class JWTCustomCallerPrincipal extends JWTCallerPrincipalFactory {
 
+    private static final Logger log = Logger.getLogger(JWTCustomCallerPrincipal.class.getName());
+
+    @Inject
+    JWTService jwtService;
+
     @Override
     public JWTCallerPrincipal parse(String token, JWTAuthContextInfo authContextInfo) throws ParseException {
-        System.out.println("Token recebido: " + token);
-        JWTService.validarToken(token);
+        System.out.println("JWTCustomCallerPrincipal.parse");
 
-        try{
+        jwtService.validarToken(token);
 
-            String payload = new String(
-                    Base64.getUrlDecoder().decode(token.split("\\.")[1]),
-                    StandardCharsets.UTF_8
-            );
+        try {
+            String payload = new String(Base64.getUrlDecoder().decode(token.split("\\.")[1]), StandardCharsets.UTF_8);
 
             var claims = JwtClaims.parse(payload);
 
             return new DefaultJWTCallerPrincipal(token, "JWT", claims);
 
         } catch (Exception e) {
-            System.err.println("Erro ao decodificar o token JWT: " + e.getMessage());
-            throw new RuntimeException(e);
+            log.severe("Error extract JWT payload: " + e.getMessage());
+            throw new ParseException("Error extract JWT payload", e);
         }
     }
+
 }

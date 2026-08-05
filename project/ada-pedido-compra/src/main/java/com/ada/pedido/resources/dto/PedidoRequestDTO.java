@@ -5,9 +5,8 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
 
-public record PedidoRequest(
+public record PedidoRequestDTO(
         @NotNull
         @NotEmpty(message = "O pedido deve ter pelo menos um item")
-        List<ItemPedidoRequest> items
-) {
+        List<ItemPedidoRequestDTO> itens) {
 }

@@ -1,10 +1,11 @@
 package com.ada.pedido;
 
 import com.ada.pedido.repositories.ClienteRepository;
+import com.ada.pedido.repositories.ProdutoRepository;
 import com.ada.pedido.repositories.entities.ClienteEntity;
 import com.ada.pedido.repositories.entities.ProdutoEntity;
-import com.ada.pedido.repositories.ProdutoRepository;
 import com.ada.pedido.repositories.entities.TipoUsuario;
+import io.quarkus.elytron.security.common.BcryptUtil;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Singleton;
@@ -16,36 +17,33 @@ import java.math.BigDecimal;
 public class Startup {
 
     @Transactional
-    public void criarAdmin(@Observes StartupEvent event, ClienteRepository clienteRepository) {
-        System.out.println("Criando usuário admin...");
-        if (clienteRepository.findByEmail("admin@ada.com").isEmpty()) {
-            var admin = new ClienteEntity();
-            admin.setNome("Administrador");
+    public void criarAdmin(@Observes StartupEvent evt, ClienteRepository repository) {
+        if (repository.buscarPorEmail("admin@ada.com").isEmpty()) {
+            ClienteEntity admin = new ClienteEntity();
+            admin.setNome("Admin");
             admin.setEmail("admin@ada.com");
-            admin.setSenha(io.quarkus.elytron.security.common.BcryptUtil.bcryptHash("admin123"));
+            admin.setSenha(BcryptUtil.bcryptHash("12345678"));
             admin.setTipoUsuario(TipoUsuario.ADMIN);
-            clienteRepository.persist(admin);
+            repository.persist(admin);
         }
-
-
-        System.out.println("Criando usuário admin...");
     }
 
     @Transactional
     public void criarProduto(@Observes StartupEvent evt, ProdutoRepository repository) {
-        System.out.println("Criando produto...");
-        if (repository.findByDescricaoLikeIgnoreCase("Produto para teste").isEmpty()) {
+        if (repository.findByDescricaoLikeIgnoreCase("Produto 1").isEmpty()) {
             ProdutoEntity produto = new ProdutoEntity();
-            produto.setDescricao("Produto para teste");
-            produto.setPreco(BigDecimal.TEN);
-            produto.setEstoque(10);
+            produto.setDescricao("Produto 1");
+            produto.setPreco(BigDecimal.valueOf(35.99));
+            produto.setEstoque(8);
             repository.persist(produto);
         }
-        System.out.println("Produto Criado!");
-        var produto = repository.findByDescricaoLikeIgnoreCase("Produto para teste").get(0);
-        System.out.println("Produto: " + produto.getId() +
-                           " - Descrição: " + produto.getDescricao() +
-                           " - Preço: " + produto.getPreco() +
-                           " - Estoque: " + produto.getEstoque());
+        if (repository.findByDescricaoLikeIgnoreCase("Produto 2").isEmpty()) {
+            ProdutoEntity produto = new ProdutoEntity();
+            produto.setDescricao("Produto 2");
+            produto.setPreco(BigDecimal.valueOf(45.99));
+            produto.setEstoque(12);
+            repository.persist(produto);
+        }
+
     }
 }

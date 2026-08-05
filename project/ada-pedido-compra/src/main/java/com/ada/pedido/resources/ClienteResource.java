@@ -1,237 +1,147 @@
 package com.ada.pedido.resources;
 
-import com.ada.pedido.repositories.entities.ClienteEntity;
-import com.ada.pedido.repositories.ClienteRepository;
-import com.ada.pedido.resources.dto.ClienteRequest;
-import com.ada.pedido.resources.dto.ClienteResponse;
-import com.ada.pedido.resources.exceptions.BusinessException;
+import com.ada.pedido.resources.dto.ClienteRequestDTO;
+import com.ada.pedido.resources.dto.ClienteResponseDTO;
+import com.ada.pedido.services.ClienteService;
 import io.quarkus.security.Authenticated;
-import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
-import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-
-import java.util.ArrayList;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
+import org.eclipse.microprofile.openapi.annotations.responses.APIResponses;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 @Authenticated
 @Path("/clientes")
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
+@Tag(name = "Clientes", description = "Endpoints para gerenciamento de clientes")
 public class ClienteResource {
 
-    private final ClienteRepository clienteRepository;
-    private final SecurityIdentity securityIdentity;
+    private final ClienteService clienteService;
 
-    public ClienteResource(ClienteRepository clienteRepository, SecurityIdentity securityIdentity) {
-        this.clienteRepository = clienteRepository;
-        this.securityIdentity = securityIdentity;
+    public ClienteResource(ClienteService clienteService) {
+        this.clienteService = clienteService;
     }
 
     @POST
-    @Path("/criar")
-    @Transactional
     @PermitAll
-    public Response criarCliente(@Valid ClienteRequest cliente) {
+    @Operation(summary = "Cadastrar novo cliente", description = "Endpoint público para cadastro de novo cliente no sistema. Todo cadastro público cria um usuário do tipo CLIENTE.")
+    @APIResponses({
+            @APIResponse(responseCode = "201", description = "Cliente cadastrado com sucesso"),
+            @APIResponse(responseCode = "400", description = "Dados de entrada inválidos")
+    })
+    public Response criar(@Valid ClienteRequestDTO clienteDTO) {
 
-        if (cliente.nome().length() < 5){
-            throw new BusinessException("Nome do cliente não pode ter menos de 5 caracteres");
-        }
-
-        var entity = cliente.criarEntity();
-        clienteRepository.persist(entity);
+        var clienteCriado = clienteService.criarCliente(clienteDTO);
 
         return Response
                 .status(Response.Status.CREATED)
-                .entity(ClienteResponse.fromEntity(entity))
-                .build();
-
-    }
-
-    @GET
-    @Path("/listar")
-    @RolesAllowed({"ADMIN"})
-    public Response listarClientes() {
-
-
-        var panacheQuery = clienteRepository.findAll();
-        var listaClientes = panacheQuery.list();
-
-//        var listaClientesDTO = listaClientes.stream()
-//                .map(ClienteDTO::fromEntity)
-//                .toList();
-
-        var listaClientesDTO = new ArrayList<>();
-        for (ClienteEntity cliente : listaClientes) {
-            listaClientesDTO.add(ClienteResponse.fromEntity(cliente));
-        }
-
-        return Response
-                .status(Response.Status.OK)
-                .entity(listaClientesDTO)
+                .entity(ClienteResponseDTO.criarDeEntidade(clienteCriado))
                 .build();
     }
 
     @GET
-    @Path("/buscar/{id}")
-    @RolesAllowed({"ADMIN"})
-    public Response buscarClientePorId(@PathParam("id") Long id) {
+    @RolesAllowed("ADMIN")
+    @Path("/{clienteId}")
+    @Operation(summary = "Buscar cliente por ID", description = "Recupera os detalhes de um cliente através do seu ID. Requer perfil ADMIN.")
+    @APIResponses({
+            @APIResponse(responseCode = "200", description = "Cliente encontrado"),
+            @APIResponse(responseCode = "401", description = "Não autenticado"),
+            @APIResponse(responseCode = "403", description = "Acesso negado - Requer perfil ADMIN"),
+            @APIResponse(responseCode = "404", description = "Cliente não encontrado")
+    })
+    public Response buscarPorId(@Parameter(description = "ID do cliente", required = true) @PathParam("clienteId") Long id) {
 
-        var clienteEntity = clienteRepository.findById(id);
-
-        if (clienteEntity == null) {
-            return Response
-                    .status(Response.Status.NOT_FOUND)
-                    .entity("{\"message\": \"Cliente não encontrado\"}")
-                    .build();
-        }
+        var cliente = clienteService.buscarClientePorId(id);
 
         return Response
-                .status(Response.Status.OK)
-                .entity(ClienteResponse.fromEntity(clienteEntity))
+                .ok(ClienteResponseDTO.criarDeEntidade(cliente))
                 .build();
-
     }
 
-    @DELETE
-    @Path("/deletar/{id}")
-    @Transactional
+    @GET
     @RolesAllowed({"ADMIN"})
-    public Response deletarCliente(@PathParam("id") Long id) {
+    @Operation(summary = "Listar todos os clientes", description = "Retorna uma lista com todos os clientes cadastrados no sistema. Requer perfil ADMIN.")
+    @APIResponses({
+            @APIResponse(responseCode = "200", description = "Lista de clientes retornada com sucesso"),
+            @APIResponse(responseCode = "401", description = "Não autenticado"),
+            @APIResponse(responseCode = "403", description = "Acesso negado - Requer perfil ADMIN")
+    })
+    public Response buscarTodos() {
 
-        clienteRepository.deleteById(id);
+        var listaClientes = clienteService.buscarTodos();
 
-        //var cliente = clienteRepository.findById(id);
-
-//        if (!deletado) {
-//            return Response
-//                    .status(Response.Status.NOT_FOUND)
-//                    .entity("{\"message\": \"Cliente não encontrado\"}")
-//                    .build();
-//        }
-
-        //clienteRepository.delete(cliente);
+        var listaDTO = listaClientes
+                .stream()
+                .map(ClienteResponseDTO::criarDeEntidade)
+                .toList();
 
         return Response
-                .status(Response.Status.NO_CONTENT)
+                .ok(listaDTO)
                 .build();
     }
 
     @PUT
-    @Path("/atualizar/{id}")
-    @Transactional
-    @RolesAllowed({"ADMIN", "CLIENTE"})
-    public Response atualizarCliente(@PathParam("id") Long id, @Valid ClienteRequest clienteAtualizado) {
+    @RolesAllowed("ADMIN")
+    @Path("/{id}")
+    @Operation(summary = "Atualizar cliente por completo", description = "Atualiza todos os dados de um cliente existente. Requer perfil ADMIN.")
+    @APIResponses({
+            @APIResponse(responseCode = "200", description = "Cliente atualizado com sucesso"),
+            @APIResponse(responseCode = "400", description = "Dados de entrada inválidos"),
+            @APIResponse(responseCode = "401", description = "Não autenticado"),
+            @APIResponse(responseCode = "403", description = "Acesso negado - Requer perfil ADMIN"),
+            @APIResponse(responseCode = "404", description = "Cliente não encontrado")
+    })
+    public Response atualizar(@Parameter(description = "ID do cliente", required = true) @PathParam("id") Long id, @Valid ClienteRequestDTO clienteDTO) {
 
-        validaClienteHaAlterar(id);
-
-        var clienteEntity = clienteRepository.findById(id);
-
-        if (clienteEntity == null) {
-            return Response
-                    .status(Response.Status.NOT_FOUND)
-                    .entity("{\"message\": \"Cliente não encontrado\"}")
-                    .build();
-        }
-
-        clienteEntity.setNome(clienteAtualizado.nome());
-        clienteEntity.setEmail(clienteAtualizado.email());
-
-        clienteRepository.persist(clienteEntity);
+        var cliente = clienteService.atualizarCliente(id, clienteDTO);
 
         return Response
-                .status(Response.Status.OK)
-                .entity(ClienteResponse.fromEntity(clienteEntity))
+                .ok(ClienteResponseDTO.criarDeEntidade(cliente))
                 .build();
     }
 
     @PATCH
-    @Path("/atualizar-parcialmente/{id}")
-    @Transactional
-    @RolesAllowed({"ADMIN", "CLIENTE"})
-    public Response atualizarClienteParcialmente(@PathParam("id") Long id, ClienteRequest clienteAtualizado) {
+    @RolesAllowed("ADMIN")
+    @Path("/{id}")
+    @Operation(summary = "Atualizar cliente parcialmente", description = "Atualiza apenas os campos enviados no JSON de um cliente. Requer perfil ADMIN.")
+    @APIResponses({
+            @APIResponse(responseCode = "200", description = "Cliente atualizado parcialmente com sucesso"),
+            @APIResponse(responseCode = "401", description = "Não autenticado"),
+            @APIResponse(responseCode = "403", description = "Acesso negado - Requer perfil ADMIN"),
+            @APIResponse(responseCode = "404", description = "Cliente não encontrado")
+    })
+    public Response atualizacaoParcial(@Parameter(description = "ID do cliente", required = true) @PathParam("id") Long id, ClienteRequestDTO clienteDTO) {
 
-        validaClienteHaAlterar(id);
-
-        var clienteEntity = clienteRepository.findById(id);
-        if (clienteEntity == null) {
-            return Response
-                    .status(Response.Status.NOT_FOUND)
-                    .entity("{\"message\": \"Cliente não encontrado\"}")
-                    .build();
-        }
-
-        if (clienteAtualizado.nome() != null) {
-            clienteEntity.setNome(clienteAtualizado.nome());
-        }
-        if (clienteAtualizado.email() != null) {
-            clienteEntity.setEmail(clienteAtualizado.email());
-        }
-
-        clienteRepository.persist(clienteEntity);
+        var cliente = clienteService.atualizarClienteParcial(id, clienteDTO);
 
         return Response
-                .status(Response.Status.OK)
-                .entity(ClienteResponse.fromEntity(clienteEntity))
+                .ok(ClienteResponseDTO.criarDeEntidade(cliente))
                 .build();
     }
 
-    @GET
-    @Path("/buscar-por-email/{email}")
-    @RolesAllowed({"ADMIN"})
-    public Response buscarClientePorEmail(@PathParam("email") String email) {
-        var cliente = clienteRepository.findByEmail(email);
+    @DELETE
+    @RolesAllowed("ADMIN")
+    @Path("/{id}")
+    @Operation(summary = "Remover cliente", description = "Remove um cliente do sistema pelo seu ID. Requer perfil ADMIN.")
+    @APIResponses({
+            @APIResponse(responseCode = "204", description = "Cliente removido com sucesso"),
+            @APIResponse(responseCode = "401", description = "Não autenticado"),
+            @APIResponse(responseCode = "403", description = "Acesso negado - Requer perfil ADMIN")
+    })
+    public Response deletar(@Parameter(description = "ID do cliente a ser removido", required = true) @PathParam("id") Long id) {
 
-        if (cliente.isEmpty()) {
-            return Response
-                    .status(Response.Status.NOT_FOUND)
-                    .entity("{\"message\": \"Cliente não encontrado\"}")
-                    .build();
-        }
-
-        var clienteDTO = ClienteResponse.fromEntity(cliente.get());
+        clienteService.deletarCliente(id);
 
         return Response
-                .status(Response.Status.OK)
-                .entity(clienteDTO)
+                .noContent()
                 .build();
-    }
-
-    @GET
-    @Path("/buscar-por-nome/{nome}")
-    @RolesAllowed({"ADMIN"})
-    public Response buscarClientePorNome(@PathParam("nome") String nome) {
-        var panacheQuery = clienteRepository.findByNameLike(nome);
-        var listaClientes = panacheQuery.list();
-
-        var listaClientesDTO = listaClientes.stream()
-                .map(ClienteResponse::fromEntity)
-                .toList();
-
-        return Response
-                .status(Response.Status.OK)
-                .entity(listaClientesDTO)
-                .build();
-    }
-
-    private void validaClienteHaAlterar(Long id) {
-        if (id == null) {
-            throw new BusinessException("Id do cliente não pode ser nulo");
-        }
-
-        String userEmail = securityIdentity.getPrincipal().getName();
-        var optional = clienteRepository.findByEmail(userEmail);
-        if (optional.isEmpty()) {
-            throw new BusinessException("Usuário logado não encontrado");
-        }
-
-        var userLogado = optional.get();
-        if (!id.equals(userLogado.getId()) && userLogado.getTipoUsuario().name().equals("CLIENTE")) {
-            throw new BusinessException("Você não pode atualizar outro cliente");
-        }
     }
 
 }

@@ -6,144 +6,95 @@ import com.ada.pedido.repositories.ProdutoRepository;
 import com.ada.pedido.repositories.entities.ItemPedidoEntity;
 import com.ada.pedido.repositories.entities.PedidoEntity;
 import com.ada.pedido.repositories.entities.StatusPedido;
-import com.ada.pedido.resources.dto.ItemPedidoRequest;
-import com.ada.pedido.resources.dto.ItemPedidoResponse;
-import com.ada.pedido.resources.dto.PedidoRequest;
-import com.ada.pedido.resources.dto.PedidoResponse;
+import com.ada.pedido.resources.dto.ItemPedidoRequestDTO;
+import com.ada.pedido.resources.dto.PedidoRequestDTO;
+import com.ada.pedido.services.pedido.PedidoException;
 import com.ada.pedido.services.pedido.ProcessarPedido;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.transaction.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
-//@ApplicationScoped
+@ApplicationScoped
 public class PedidoService {
 
-    private final SecurityIdentity securityIdentity;
-    private final ClienteRepository clienteRepository;
+    private final Instance<ProcessarPedido> listaProcessarPedido;
     private final ProdutoRepository produtoRepository;
-
-    private final Instance<ProcessarPedido> listProcessarPedidoInstance;
+    private final ClienteRepository clienteRepository;
     private final PedidoRepository pedidoRepository;
+    private final SecurityIdentity securityIdentity;
 
 
-    public PedidoService(SecurityIdentity securityIdentity,
-                         ClienteRepository clienteRepository,
+    public PedidoService(Instance<ProcessarPedido> listaProcessarPedido,
                          ProdutoRepository produtoRepository,
-                         Instance<ProcessarPedido> listProcessarPedidoInstance, PedidoRepository pedidoRepository) {
-        this.securityIdentity = securityIdentity;
-        this.clienteRepository = clienteRepository;
+                         ClienteRepository clienteRepository,
+                         PedidoRepository pedidoRepository,
+                         SecurityIdentity securityIdentity) {
+
+        this.listaProcessarPedido = listaProcessarPedido;
         this.produtoRepository = produtoRepository;
-        this.listProcessarPedidoInstance = listProcessarPedidoInstance;
+        this.clienteRepository = clienteRepository;
         this.pedidoRepository = pedidoRepository;
+        this.securityIdentity = securityIdentity;
     }
 
     @Transactional
-    public PedidoResponse criar(PedidoRequest pedidoRequest) {
+    public PedidoEntity create(PedidoRequestDTO pedidoDTO) {
 
-        String clienteEmail = securityIdentity.getPrincipal().getName();
+        var clienteEmail = securityIdentity.getPrincipal().getName();
         var cliente = clienteRepository
-                .findByEmail(clienteEmail)
-                .orElseThrow(() -> new RuntimeException("Cliente não encontrado"));
+                .buscarPorEmail(clienteEmail)
+                .orElseThrow(() -> new PedidoException("Usuario não encontrado!"));
 
-        var pedidoEntity = new PedidoEntity();
-        pedidoEntity.setDatePedido(LocalDateTime.now());
-        pedidoEntity.setCliente(cliente);
-        pedidoEntity.setStatus(StatusPedido.NOVO);
-        pedidoEntity.setMensagemStatus("");
+        var pedido = new PedidoEntity();
+        pedido.setDataPedido(LocalDateTime.now());
+        pedido.setStatus(StatusPedido.NOVO);
+        pedido.setMensagemStatus("");
+        pedido.setCliente(cliente);
 
-        var itemPedidoEntityList = pedidoRequest.items().stream()
-                .map(itemPedidoRequest -> construirItemPedido(itemPedidoRequest, pedidoEntity))
+        var itens = pedidoDTO.itens().stream()
+                .map(itemPedidoRequest -> construirItemPedido(itemPedidoRequest, pedido))
                 .toList();
-        pedidoEntity.setItems(itemPedidoEntityList);
 
-        for (ProcessarPedido pedido : listProcessarPedidoInstance) {
-            pedido.processar(pedidoEntity);
+        pedido.setItens(itens);
+
+        for (ProcessarPedido processarPedido : listaProcessarPedido) {
+            processarPedido.processar(pedido);
         }
 
-        // processamento de regras para o pedido
-        // 1 - validar estoque
-        // 2 - baixar estoque
-        // 5 - enviar email de confirmação
+        /* X-POINT
+            não lançar exceção para pedido não processado.
+            a exceção gera rollback, portanto é necessário manter no banco todos os pedidos.
 
-        // 4 - verficar desconto
-        // 6 - solicitar transporte
-
-        var itemsResponse = new ArrayList<ItemPedidoResponse>();
-        var totalPedido = BigDecimal.ZERO;
-
-        for (ItemPedidoEntity item : pedidoEntity.getItems()) {
-            var itemResponse = new ItemPedidoResponse(
-                    item.getProduto().getDescricao(),
-                    item.getPreco(),
-                    item.getQuantidade(),
-                    item.getPreco().multiply(BigDecimal.valueOf(item.getQuantidade()))
-            );
-            itemsResponse.add(itemResponse);
-            totalPedido = totalPedido.add(itemResponse.totalItem());
-        }
-
-        PedidoResponse pedidoResponse = new PedidoResponse(
-                pedidoEntity.getId(),
-                pedidoEntity.getDatePedido(),
-                pedidoEntity.getCliente().getNome(),
-                pedidoEntity.getStatus().name(),
-                itemsResponse,
-                totalPedido
-        );
-
-        return pedidoResponse;
-    }
-
-    public List<PedidoResponse> listarTodos(){
-
-        var list = pedidoRepository.listAll();
-        var listResponse = new ArrayList<PedidoResponse>();
-        for (PedidoEntity pedido : list) {
-            var itemsResponse = new ArrayList<ItemPedidoResponse>();
-            var totalPedido = BigDecimal.ZERO;
-            for (ItemPedidoEntity item : pedido.getItems()) {
-                var itemResponse = new ItemPedidoResponse(
-                        item.getProduto().getDescricao(),
-                        item.getPreco(),
-                        item.getQuantidade(),
-                        item.getPreco().multiply(BigDecimal.valueOf(item.getQuantidade()))
-                );
-                itemsResponse.add(itemResponse);
-                totalPedido = totalPedido.add(itemResponse.totalItem());
+            if (pedido.getStatus().equals(StatusPedido.NAO_PROCESSADO)) {
+                throw new PedidoException("Pedido não pode ser realizado! " + pedido.getMensagemStatus());
             }
-            PedidoResponse pedidoResponse = new PedidoResponse(
-                    pedido.getId(),
-                    pedido.getDatePedido(),
-                    pedido.getCliente().getNome(),
-                    pedido.getStatus().name(),
-                    itemsResponse,
-                    totalPedido
-            );
-            listResponse.add(pedidoResponse);
-        }
-        return listResponse;
+        */
+
+        return pedido;
 
     }
 
-    private ItemPedidoEntity construirItemPedido(ItemPedidoRequest itemPedidoRequest, PedidoEntity pedidoEntity){
+    private ItemPedidoEntity construirItemPedido(ItemPedidoRequestDTO itemPedidoDTO, PedidoEntity pedido) {
 
-        var produto = produtoRepository.findByIdOptional(itemPedidoRequest.produtoId())
-                .orElseThrow(() -> new RuntimeException("Produto não encontrado"));
+        var produto = produtoRepository
+                .findByIdOptional(itemPedidoDTO.produtoId())
+                .orElseThrow(() -> new PedidoException("Produto não encontrado! Id: " + itemPedidoDTO.produtoId()));
 
-        ItemPedidoEntity itemPedidoEntity = new ItemPedidoEntity();
-        itemPedidoEntity.setPedido(pedidoEntity);
-        itemPedidoEntity.setProduto(produto);
-        itemPedidoEntity.setQuantidade(itemPedidoRequest.quantidade());
-        itemPedidoEntity.setPreco(produto.getPreco());
+        var itemPedido = new ItemPedidoEntity();
+        itemPedido.setProduto(produto);
+        itemPedido.setQuantidade(itemPedidoDTO.quantidade());
+        itemPedido.setPedido(pedido);
+        itemPedido.setPreco(produto.getPreco());
 
-        return  itemPedidoEntity;
+        return itemPedido;
     }
 
-
+    public List<PedidoEntity> listarTodos() {
+        var list = this.pedidoRepository.listAll();
+        return list;
+    }
 }

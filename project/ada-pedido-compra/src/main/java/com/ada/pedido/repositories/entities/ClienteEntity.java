@@ -2,8 +2,6 @@ package com.ada.pedido.repositories.entities;
 
 import jakarta.persistence.*;
 
-import java.util.Objects;
-
 @Entity
 @Table(name = "clientes")
 public class ClienteEntity {
@@ -12,10 +10,10 @@ public class ClienteEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "nome", length = 50, nullable = false)
+    @Column(length = 50, nullable = false)
     private String nome;
 
-    @Column(name = "email", nullable = false, unique = true)
+    @Column(name = "email", unique = true)
     private String email;
 
     @Column(length = 100, nullable = false)
@@ -62,17 +60,5 @@ public class ClienteEntity {
 
     public void setTipoUsuario(TipoUsuario tipoUsuario) {
         this.tipoUsuario = tipoUsuario;
-    }
-
-    @Override
-    public final boolean equals(Object o) {
-        if (!(o instanceof ClienteEntity that)) return false;
-
-        return Objects.equals(id, that.id);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(id);
     }
 }

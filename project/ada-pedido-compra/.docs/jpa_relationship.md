@@ -23,7 +23,7 @@ public class User {
 ## 2. @ManyToOne
 **Definição:** Representa um relacionamento onde múltiplas instâncias de uma entidade estão associadas a uma única instância de outra entidade. Este é frequentemente o lado "dono" (owning side) do relacionamento (contém a Chave Estrangeira).
 
-**Caso de Uso:** Muitos `ItemPedido` pertencem a um `Pedido`.
+**Caso de Uso:** Muitos `ItemPedidoEntity` pertencem a um `PedidoEntity`.
 
 **Exemplo:**
 ```java
@@ -41,7 +41,7 @@ public class ItemPedido {
 ## 3. @OneToMany
 **Definição:** Representa uma relação em que uma única instância de entidade está associada a várias instâncias de outra entidade. Este é tipicamente o lado "inverso" de uma relação `@ManyToOne`.
 
-**Caso de Uso:** Um `Pedido` (Pedido) contém muitos `ItemPedido` (Itens de Pedido).
+**Caso de Uso:** Um `PedidoEntity` (Pedido) contém muitos `ItemPedidoEntity` (Itens de Pedido).
 
 **Exemplo:**
 ```java

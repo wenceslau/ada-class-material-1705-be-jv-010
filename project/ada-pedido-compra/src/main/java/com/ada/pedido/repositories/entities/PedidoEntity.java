@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Objects;
 
 @Entity
 @Table(name = "pedidos")
@@ -15,19 +14,19 @@ public class PedidoEntity {
     private Long id;
 
     @Column(nullable = false)
-    private LocalDateTime datePedido;
+    private LocalDateTime dataPedido;
 
-    @ManyToOne
-    private ClienteEntity cliente;
+    @Column(nullable = false)
+    private String mensagemStatus;
 
     @Enumerated(EnumType.STRING)
     private StatusPedido status;
 
-    @Column
-    private String mensagemStatus;
+    @ManyToOne
+    private ClienteEntity cliente;
 
     @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL)
-    private List<ItemPedidoEntity> items;
+    private List<ItemPedidoEntity> itens;
 
     public Long getId() {
         return id;
@@ -37,28 +36,12 @@ public class PedidoEntity {
         this.id = id;
     }
 
-    public LocalDateTime getDatePedido() {
-        return datePedido;
+    public LocalDateTime getDataPedido() {
+        return dataPedido;
     }
 
-    public void setDatePedido(LocalDateTime datePedido) {
-        this.datePedido = datePedido;
-    }
-
-    public ClienteEntity getCliente() {
-        return cliente;
-    }
-
-    public void setCliente(ClienteEntity cliente) {
-        this.cliente = cliente;
-    }
-
-    public StatusPedido getStatus() {
-        return status;
-    }
-
-    public void setStatus(StatusPedido status) {
-        this.status = status;
+    public void setDataPedido(LocalDateTime dataPedido) {
+        this.dataPedido = dataPedido;
     }
 
     public String getMensagemStatus() {
@@ -69,23 +52,27 @@ public class PedidoEntity {
         this.mensagemStatus = mensagemStatus;
     }
 
-    public List<ItemPedidoEntity> getItems() {
-        return items;
+    public StatusPedido getStatus() {
+        return status;
     }
 
-    public void setItems(List<ItemPedidoEntity> items) {
-        this.items = items;
+    public void setStatus(StatusPedido status) {
+        this.status = status;
     }
 
-    @Override
-    public final boolean equals(Object o) {
-        if (!(o instanceof PedidoEntity that)) return false;
-
-        return Objects.equals(id, that.id);
+    public ClienteEntity getCliente() {
+        return cliente;
     }
 
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(id);
+    public void setCliente(ClienteEntity cliente) {
+        this.cliente = cliente;
+    }
+
+    public List<ItemPedidoEntity> getItens() {
+        return itens;
+    }
+
+    public void setItens(List<ItemPedidoEntity> itens) {
+        this.itens = itens;
     }
 }
